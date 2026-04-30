@@ -125,6 +125,38 @@ export default function AdminPage() {
     }
   };
 
+  const handleExportCSV = () => {
+    if (statsData.length === 0) {
+      alert('내보낼 데이터가 없습니다.');
+      return;
+    }
+
+    const headers = ['직원 이름', '이메일', '이번 달 출근 일수', '이번 달 총 근무 시간'];
+    const rows = statsData.map(item => [
+      item.name,
+      item.email,
+      `${item.count}일`,
+      `${Math.floor(item.totalMins / 60)}시간 ${item.totalMins % 60}분`
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    
+    link.href = url;
+    const currentMonth = format(new Date(), 'yyyy-MM');
+    link.download = `근태통계_${currentMonth}.csv`;
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleDeleteAttendance = async (id: string) => {
     // confirm 없이 테스트
     try {
