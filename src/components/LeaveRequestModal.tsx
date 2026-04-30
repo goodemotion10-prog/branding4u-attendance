@@ -41,6 +41,19 @@ export default function LeaveRequestModal({ isOpen, onClose, onSuccess }: LeaveR
 
       if (error) throw error;
       
+      // 텔레그램 알림 전송
+      try {
+        await fetch('/api/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            message: `📝 <b>휴가 신청 알림</b>\n<b>${user.name || user.email}</b>님이 휴가/조퇴를 신청하셨습니다.\n날짜: ${date}\n종류: ${type === 'full_day' ? '월차' : type === 'half_day' ? '반차' : '조퇴'}\n사유: ${reason}` 
+          })
+        });
+      } catch (e) {
+        console.error('Notification failed', e);
+      }
+
       onSuccess();
       onClose();
     } catch (err: any) {

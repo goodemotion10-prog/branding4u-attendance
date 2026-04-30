@@ -45,7 +45,6 @@ export default function AttendanceCalendar() {
       const { data: leaves } = await supabase
         .from('leave_requests')
         .select('*, users(name)')
-        .eq('status', 'approved')
         .gte('request_date', start)
         .lte('request_date', end);
 
@@ -143,8 +142,9 @@ export default function AttendanceCalendar() {
                 </div>
               )}
               {dayLeaves.map((leave, idx) => (
-                <div key={idx} className="text-[10px] px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded border border-amber-100 truncate">
-                  {leave.users.name} ({leave.type === 'full_day' ? '월차' : '반차'})
+                <div key={idx} className={`text-[10px] px-1.5 py-0.5 rounded border truncate ${leave.status === 'approved' ? 'bg-amber-50 text-amber-700 border-amber-100' : leave.status === 'pending' ? 'bg-gray-100 text-gray-500 border-gray-200' : 'hidden'}`}>
+                  {leave.users.name} ({leave.type === 'full_day' ? '월차' : leave.type === 'half_day' ? '반차' : '조퇴'})
+                  {leave.status === 'pending' && ' (대기)'}
                 </div>
               ))}
             </div>
@@ -173,9 +173,10 @@ export default function AttendanceCalendar() {
         renderCells()
       )}
       
-      <div className="mt-6 flex gap-4 text-xs text-gray-500">
-        <div className="flex items-center"><span className="w-3 h-3 bg-green-100 border border-green-200 rounded mr-1"></span> 출근 현황</div>
-        <div className="flex items-center"><span className="w-3 h-3 bg-amber-100 border border-amber-200 rounded mr-1"></span> 휴가/조퇴</div>
+      <div className="mt-6 flex flex-wrap gap-4 text-xs text-gray-500">
+        <div className="flex items-center"><span className="w-3 h-3 bg-green-100 border border-green-200 rounded mr-1"></span> 출근</div>
+        <div className="flex items-center"><span className="w-3 h-3 bg-amber-100 border border-amber-200 rounded mr-1"></span> 승인된 휴가</div>
+        <div className="flex items-center"><span className="w-3 h-3 bg-gray-100 border border-gray-200 rounded mr-1"></span> 대기 중인 휴가</div>
       </div>
 
       {/* 날짜 상세 보기 모달 */}
@@ -212,14 +213,17 @@ export default function AttendanceCalendar() {
                 <div>
                   <h4 className="text-sm font-semibold text-amber-600 mb-2 flex items-center">
                     <span className="w-2 h-2 rounded-full bg-amber-500 mr-2"></span>
-                    휴가/조퇴자 ({leaveData.filter(l => l.request_date === selectedDate).length}명)
+                    휴가/조퇴자 ({leaveData.filter(l => l.request_date === selectedDate && l.status !== 'rejected').length}명)
                   </h4>
                   <ul className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-100 max-h-40 overflow-y-auto">
-                    {leaveData.filter(l => l.request_date === selectedDate).length > 0 ? (
-                      leaveData.filter(l => l.request_date === selectedDate).map((l, i) => (
-                        <li key={i} className="py-1 border-b border-gray-100 last:border-0 flex justify-between">
+                    {leaveData.filter(l => l.request_date === selectedDate && l.status !== 'rejected').length > 0 ? (
+                      leaveData.filter(l => l.request_date === selectedDate && l.status !== 'rejected').map((l, i) => (
+                        <li key={i} className="py-1 border-b border-gray-100 last:border-0 flex justify-between items-center">
                           <span>{l.users.name}</span>
-                          <span className="text-amber-600 font-medium">{l.type === 'full_day' ? '월차' : l.type === 'half_day' ? '반차' : '조퇴'}</span>
+                          <span className={`${l.status === 'approved' ? 'text-amber-600 font-medium' : 'text-gray-400'}`}>
+                            {l.type === 'full_day' ? '월차' : l.type === 'half_day' ? '반차' : '조퇴'}
+                            {l.status === 'pending' && ' (대기 중)'}
+                          </span>
                         </li>
                       ))
                     ) : (
