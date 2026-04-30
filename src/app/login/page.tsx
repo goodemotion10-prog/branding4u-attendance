@@ -60,7 +60,7 @@ export default function LoginPage() {
       <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg border border-gray-100">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 tracking-tight">
-            <span className="text-brand-600">Branding4U</span> 근태 관리
+            <span className="text-brand-600">BrandingForYou</span> 근태 관리
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
             사내 계정으로 로그인해주세요

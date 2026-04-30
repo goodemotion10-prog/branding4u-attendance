@@ -25,7 +25,7 @@ export default function Navbar() {
         <div className="flex justify-between h-16">
           <div className="flex items-center space-x-6">
             <Link href={user?.role === 'admin' ? '/admin' : '/dashboard'} className="flex items-center flex-shrink-0">
-              <span className="text-xl font-bold text-brand-600 tracking-tight">Branding4U</span>
+              <span className="text-xl font-bold text-brand-600 tracking-tight">BrandingForYou</span>
               <span className="ml-2 text-sm font-medium text-gray-500 hidden sm:block">근태 관리</span>
             </Link>
             

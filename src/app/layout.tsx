@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Branding4U Attendance",
-  description: "브랜딩포유 근태 관리 시스템",
+  title: "BrandingForYou Attendance",
+  description: "Employee attendance management system",
 };
 
 export default function RootLayout({
