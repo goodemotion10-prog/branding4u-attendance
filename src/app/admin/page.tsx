@@ -391,8 +391,17 @@ export default function AdminPage() {
         )}
 
         {activeTab === 'stats' && (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+          <div className="space-y-4">
+            <div className="flex justify-end">
+              <button
+                onClick={handleExportCSV}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
+              >
+                엑셀 다운로드 (CSV)
+              </button>
+            </div>
+            <div className="overflow-x-auto bg-white rounded-lg shadow border border-gray-100">
+              <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">직원 이름</th>
@@ -420,6 +429,7 @@ export default function AdminPage() {
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         )}
       </div>
