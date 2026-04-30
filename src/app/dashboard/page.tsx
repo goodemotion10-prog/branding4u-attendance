@@ -6,7 +6,8 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useRouter } from 'next/navigation';
 import Clock from '@/components/Clock';
 import LeaveRequestModal from '@/components/LeaveRequestModal';
-import { format } from 'date-fns';
+import AttendanceCalendar from '@/components/AttendanceCalendar';
+import { format, startOfMonth, endOfMonth, differenceInMinutes } from 'date-fns';
 
 export default function DashboardPage() {
   const { user } = useAuthStore();
@@ -16,6 +17,7 @@ export default function DashboardPage() {
   const [myLeaveRequests, setMyLeaveRequests] = useState<any[]>([]);
   const [workLog, setWorkLog] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [totalWorkingMinutes, setTotalWorkingMinutes] = useState(0);
 
   const fetchTodayAttendance = useCallback(async () => {
     if (!user) return;
@@ -43,6 +45,27 @@ export default function DashboardPage() {
         .eq('user_id', user.id)
         .order('request_date', { ascending: false });
       setMyLeaveRequests(leaves || []);
+
+      // 이번 달 누적 근무 시간 계산 로직
+      const startOfM = format(startOfMonth(new Date()), 'yyyy-MM-dd');
+      const endOfM = format(endOfMonth(new Date()), 'yyyy-MM-dd');
+      const { data: monthAtt } = await supabase
+        .from('attendance')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('date', startOfM)
+        .lte('date', endOfM)
+        .not('check_out_time', 'is', null);
+
+      if (monthAtt) {
+        let totalMins = 0;
+        monthAtt.forEach(att => {
+          if (att.check_in_time && att.check_out_time) {
+            totalMins += differenceInMinutes(new Date(att.check_out_time), new Date(att.check_in_time));
+          }
+        });
+        setTotalWorkingMinutes(totalMins);
+      }
 
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -139,6 +162,10 @@ export default function DashboardPage() {
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-8">
         <div className="bg-brand-600 px-6 py-8 sm:p-10 text-center">
           <Clock />
+          
+          <div className="mt-4 text-white/90 text-sm font-medium bg-brand-700/50 inline-block px-4 py-2 rounded-full border border-brand-500/30 shadow-inner">
+            이번 달 총 근무: <span className="font-bold text-white text-base ml-1">{Math.floor(totalWorkingMinutes / 60)}</span>시간 <span className="font-bold text-white text-base">{totalWorkingMinutes % 60}</span>분
+          </div>
           
           <div className="mt-8 flex flex-col sm:flex-row justify-center items-center gap-4">
             {!todayAttendance?.check_in_time ? (
@@ -264,6 +291,17 @@ export default function DashboardPage() {
               )}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <div className="mt-8 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+        <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
+          <span className="bg-brand-100 text-brand-600 w-8 h-8 rounded-lg flex items-center justify-center mr-3">🗺️</span>
+          전체 직원 캘린더
+        </h2>
+        <p className="text-sm text-gray-500 mb-4">날짜를 클릭하면 해당 날짜의 출근 및 휴가 현황을 볼 수 있습니다.</p>
+        <div className="bg-gray-50 p-2 rounded-xl border border-gray-100">
+          <AttendanceCalendar />
         </div>
       </div>
 

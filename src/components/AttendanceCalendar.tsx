@@ -23,6 +23,8 @@ export default function AttendanceCalendar() {
   const [attendanceData, setAttendanceData] = useState<any[]>([]);
   const [leaveData, setLeaveData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     fetchMonthData();
@@ -121,7 +123,11 @@ export default function AttendanceCalendar() {
         days.push(
           <div
             key={day.toString()}
-            className={`min-h-[100px] p-2 border-r border-b border-gray-50 transition-colors hover:bg-gray-50/50 ${!isCurrentMonth ? 'bg-gray-50/30' : ''}`}
+            onClick={() => {
+              setSelectedDate(formattedDate);
+              setIsModalOpen(true);
+            }}
+            className={`min-h-[100px] p-2 border-r border-b border-gray-50 transition-colors cursor-pointer hover:bg-gray-100 ${!isCurrentMonth ? 'bg-gray-50/30' : ''}`}
           >
             <div className="flex justify-between items-start">
               <span className={`text-sm font-medium ${!isCurrentMonth ? 'text-gray-300' : isToday ? 'bg-brand-600 text-white w-6 h-6 rounded-full flex items-center justify-center' : day.getDay() === 0 ? 'text-red-400' : day.getDay() === 6 ? 'text-blue-400' : 'text-gray-700'}`}>
@@ -171,6 +177,70 @@ export default function AttendanceCalendar() {
         <div className="flex items-center"><span className="w-3 h-3 bg-green-100 border border-green-200 rounded mr-1"></span> 출근 현황</div>
         <div className="flex items-center"><span className="w-3 h-3 bg-amber-100 border border-amber-200 rounded mr-1"></span> 휴가/조퇴</div>
       </div>
+
+      {/* 날짜 상세 보기 모달 */}
+      {isModalOpen && selectedDate && (
+        <div className="fixed inset-0 z-[100] overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setIsModalOpen(false)}></div>
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+            <div className="relative inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full z-10 p-6">
+              <h3 className="text-lg leading-6 font-bold text-gray-900 mb-4 border-b pb-2">
+                {selectedDate} 상세 내역
+              </h3>
+              
+              <div className="space-y-6">
+                <div>
+                  <h4 className="text-sm font-semibold text-green-600 mb-2 flex items-center">
+                    <span className="w-2 h-2 rounded-full bg-green-500 mr-2"></span>
+                    출근자 ({attendanceData.filter(a => a.date === selectedDate).length}명)
+                  </h4>
+                  <ul className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-100 max-h-40 overflow-y-auto">
+                    {attendanceData.filter(a => a.date === selectedDate).length > 0 ? (
+                      attendanceData.filter(a => a.date === selectedDate).map((a, i) => (
+                        <li key={i} className="py-1 border-b border-gray-100 last:border-0 flex justify-between">
+                          <span>{a.users.name}</span>
+                          <span className="text-gray-500">{a.check_in_time ? format(new Date(a.check_in_time), 'HH:mm') : ''}</span>
+                        </li>
+                      ))
+                    ) : (
+                      <li className="text-gray-400">출근 기록이 없습니다.</li>
+                    )}
+                  </ul>
+                </div>
+
+                <div>
+                  <h4 className="text-sm font-semibold text-amber-600 mb-2 flex items-center">
+                    <span className="w-2 h-2 rounded-full bg-amber-500 mr-2"></span>
+                    휴가/조퇴자 ({leaveData.filter(l => l.request_date === selectedDate).length}명)
+                  </h4>
+                  <ul className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-100 max-h-40 overflow-y-auto">
+                    {leaveData.filter(l => l.request_date === selectedDate).length > 0 ? (
+                      leaveData.filter(l => l.request_date === selectedDate).map((l, i) => (
+                        <li key={i} className="py-1 border-b border-gray-100 last:border-0 flex justify-between">
+                          <span>{l.users.name}</span>
+                          <span className="text-amber-600 font-medium">{l.type === 'full_day' ? '월차' : l.type === 'half_day' ? '반차' : '조퇴'}</span>
+                        </li>
+                      ))
+                    ) : (
+                      <li className="text-gray-400">휴가자가 없습니다.</li>
+                    )}
+                  </ul>
+                </div>
+              </div>
+
+              <div className="mt-6 text-right">
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg text-sm font-medium transition-colors"
+                >
+                  닫기
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

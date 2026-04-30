@@ -4,19 +4,20 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useRouter } from 'next/navigation';
-import { format } from 'date-fns';
+import { format, startOfMonth, endOfMonth, differenceInMinutes } from 'date-fns';
 import AttendanceCalendar from '@/components/AttendanceCalendar';
 
 export default function AdminPage() {
   const { user } = useAuthStore();
   const router = useRouter();
   
-  const [activeTab, setActiveTab] = useState('attendance'); // 'attendance', 'leaves', 'users', 'calendar'
+  const [activeTab, setActiveTab] = useState('attendance'); // 'attendance', 'leaves', 'users', 'calendar', 'stats'
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   
   const [attendanceData, setAttendanceData] = useState<any[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
   const [pendingUsers, setPendingUsers] = useState<any[]>([]);
+  const [statsData, setStatsData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
@@ -51,6 +52,34 @@ export default function AdminPage() {
         .eq('is_approved', false);
       setPendingUsers(puData || []);
       
+      // 4. Fetch month stats for all users
+      const startOfM = format(startOfMonth(new Date()), 'yyyy-MM-dd');
+      const endOfM = format(endOfMonth(new Date()), 'yyyy-MM-dd');
+      
+      const { data: monthAtt } = await supabase
+        .from('attendance')
+        .select(`
+          *,
+          users (name, email)
+        `)
+        .gte('date', startOfM)
+        .lte('date', endOfM)
+        .not('check_out_time', 'is', null);
+
+      if (monthAtt) {
+        const statsMap: Record<string, {name: string, email: string, totalMins: number, count: number}> = {};
+        monthAtt.forEach((att) => {
+          if (!statsMap[att.user_id]) {
+            statsMap[att.user_id] = { name: att.users.name, email: att.users.email, totalMins: 0, count: 0 };
+          }
+          if (att.check_in_time && att.check_out_time) {
+            statsMap[att.user_id].totalMins += differenceInMinutes(new Date(att.check_out_time), new Date(att.check_in_time));
+            statsMap[att.user_id].count += 1;
+          }
+        });
+        setStatsData(Object.values(statsMap).sort((a, b) => b.totalMins - a.totalMins));
+      }
+
     } catch (error) {
       console.error('Error fetching admin data:', error);
     } finally {
@@ -187,6 +216,12 @@ export default function AdminPage() {
             className={`${activeTab === 'calendar' ? 'border-brand-500 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
           >
             전체 캘린더
+          </button>
+          <button
+            onClick={() => setActiveTab('stats')}
+            className={`${activeTab === 'stats' ? 'border-brand-500 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
+          >
+            근태 통계
           </button>
         </nav>
       </div>
@@ -353,6 +388,39 @@ export default function AdminPage() {
 
         {activeTab === 'calendar' && (
           <AttendanceCalendar />
+        )}
+
+        {activeTab === 'stats' && (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">직원 이름</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">이메일</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">이번 달 출근 일수</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">이번 달 총 근무 시간</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {statsData.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-6 py-8 text-center text-gray-500">이번 달 근무 기록이 없습니다.</td>
+                  </tr>
+                ) : (
+                  statsData.map((item, idx) => (
+                    <tr key={idx} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{item.name}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.email}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.count}일</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-bold text-brand-600">
+                        {Math.floor(item.totalMins / 60)}시간 {item.totalMins % 60}분
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>
