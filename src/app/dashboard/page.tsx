@@ -137,6 +137,20 @@ export default function DashboardPage() {
         
       if (error) throw error;
       await fetchTodayAttendance();
+      
+      // 텔레그램 알림 전송 (에러가 나도 퇴근 처리는 방해하지 않음)
+      try {
+        await fetch('/api/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            message: `🌙 <b>퇴근 알림</b>\n<b>${user.name || user.email}</b>님이 퇴근하셨습니다.\n시간: ${new Date().toLocaleTimeString('ko-KR')}\n\n<b>[오늘의 업무 내용]</b>\n${workLog}` 
+          })
+        });
+      } catch (e) {
+        console.error('Notification failed', e);
+      }
+
       alert('퇴근 처리가 완료되었습니다. 수고하셨습니다!');
     } catch (error) {
       alert('퇴근 처리 중 오류가 발생했습니다.');
