@@ -1,0 +1,176 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
+import { 
+  format, 
+  addMonths, 
+  subMonths, 
+  startOfMonth, 
+  endOfMonth, 
+  startOfWeek, 
+  endOfWeek, 
+  isSameMonth, 
+  isSameDay, 
+  addDays, 
+  eachDayOfInterval 
+} from 'date-fns';
+import { ko } from 'date-fns/locale';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+
+export default function AttendanceCalendar() {
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [attendanceData, setAttendanceData] = useState<any[]>([]);
+  const [leaveData, setLeaveData] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    fetchMonthData();
+  }, [currentMonth]);
+
+  const fetchMonthData = async () => {
+    setIsLoading(true);
+    const start = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
+    const end = format(endOfMonth(currentMonth), 'yyyy-MM-dd');
+
+    try {
+      const { data: att } = await supabase
+        .from('attendance')
+        .select('*, users(name)')
+        .gte('date', start)
+        .lte('date', end);
+      
+      const { data: leaves } = await supabase
+        .from('leave_requests')
+        .select('*, users(name)')
+        .eq('status', 'approved')
+        .gte('request_date', start)
+        .lte('request_date', end);
+
+      setAttendanceData(att || []);
+      setLeaveData(leaves || []);
+    } catch (error) {
+      console.error('Error fetching calendar data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const renderHeader = () => {
+    return (
+      <div className="flex items-center justify-between mb-6 px-2">
+        <h2 className="text-xl font-bold text-gray-900">
+          {format(currentMonth, 'yyyy년 M월', { locale: ko })}
+        </h2>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+            className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            <ChevronLeft className="w-5 h-5 text-gray-600" />
+          </button>
+          <button
+            onClick={() => setCurrentMonth(new Date())}
+            className="px-3 py-1 text-sm font-medium text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
+          >
+            오늘
+          </button>
+          <button
+            onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+            className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            <ChevronRight className="w-5 h-5 text-gray-600" />
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderDays = () => {
+    const days = ['일', '월', '화', '수', '목', '금', '토'];
+    return (
+      <div className="grid grid-cols-7 mb-2 border-b border-gray-100">
+        {days.map((day, idx) => (
+          <div key={idx} className={`py-2 text-center text-xs font-semibold uppercase tracking-wider ${day === '일' ? 'text-red-400' : day === '토' ? 'text-blue-400' : 'text-gray-400'}`}>
+            {day}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderCells = () => {
+    const monthStart = startOfMonth(currentMonth);
+    const monthEnd = endOfMonth(monthStart);
+    const startDate = startOfWeek(monthStart);
+    const endDate = endOfWeek(monthEnd);
+
+    const rows = [];
+    let days = [];
+    let day = startDate;
+
+    while (day <= endDate) {
+      for (let i = 0; i < 7; i++) {
+        const formattedDate = format(day, 'yyyy-MM-dd');
+        const dayAttendance = attendanceData.filter(a => a.date === formattedDate);
+        const dayLeaves = leaveData.filter(l => l.request_date === formattedDate);
+        
+        const isCurrentMonth = isSameMonth(day, monthStart);
+        const isToday = isSameDay(day, new Date());
+
+        days.push(
+          <div
+            key={day.toString()}
+            className={`min-h-[100px] p-2 border-r border-b border-gray-50 transition-colors hover:bg-gray-50/50 ${!isCurrentMonth ? 'bg-gray-50/30' : ''}`}
+          >
+            <div className="flex justify-between items-start">
+              <span className={`text-sm font-medium ${!isCurrentMonth ? 'text-gray-300' : isToday ? 'bg-brand-600 text-white w-6 h-6 rounded-full flex items-center justify-center' : day.getDay() === 0 ? 'text-red-400' : day.getDay() === 6 ? 'text-blue-400' : 'text-gray-700'}`}>
+                {format(day, 'd')}
+              </span>
+            </div>
+            
+            <div className="mt-2 space-y-1">
+              {dayAttendance.length > 0 && (
+                <div className="text-[10px] px-1.5 py-0.5 bg-green-50 text-green-700 rounded border border-green-100 flex justify-between">
+                  <span>출근</span>
+                  <span className="font-bold">{dayAttendance.length}명</span>
+                </div>
+              )}
+              {dayLeaves.map((leave, idx) => (
+                <div key={idx} className="text-[10px] px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded border border-amber-100 truncate">
+                  {leave.users.name} ({leave.type === 'full_day' ? '월차' : '반차'})
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+        day = addDays(day, 1);
+      }
+      rows.push(
+        <div className="grid grid-cols-7" key={day.toString()}>
+          {days}
+        </div>
+      );
+      days = [];
+    }
+
+    return <div className="border-t border-l border-gray-50 rounded-lg overflow-hidden">{rows}</div>;
+  };
+
+  return (
+    <div className="p-4 sm:p-6 bg-white">
+      {renderHeader()}
+      {renderDays()}
+      {isLoading ? (
+        <div className="h-[400px] flex items-center justify-center text-gray-400">데이터 로딩 중...</div>
+      ) : (
+        renderCells()
+      )}
+      
+      <div className="mt-6 flex gap-4 text-xs text-gray-500">
+        <div className="flex items-center"><span className="w-3 h-3 bg-green-100 border border-green-200 rounded mr-1"></span> 출근 현황</div>
+        <div className="flex items-center"><span className="w-3 h-3 bg-amber-100 border border-amber-200 rounded mr-1"></span> 휴가/조퇴</div>
+      </div>
+    </div>
+  );
+}
