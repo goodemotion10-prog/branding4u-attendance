@@ -7,6 +7,45 @@ import { useRouter } from 'next/navigation';
 import { format, startOfMonth, endOfMonth, differenceInMinutes } from 'date-fns';
 import AttendanceCalendar from '@/components/AttendanceCalendar';
 
+const WorkLogCell = ({ workLog }: { workLog: string }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  if (!workLog) {
+    return <span className="text-gray-400 italic">미작성</span>;
+  }
+
+  const isLongText = workLog.length > 40 || workLog.includes('\n');
+
+  if (!isLongText) {
+    return <div className="whitespace-pre-wrap text-gray-700">{workLog}</div>;
+  }
+
+  return (
+    <div 
+      className="cursor-pointer group"
+      onClick={() => setIsExpanded(!isExpanded)}
+    >
+      {isExpanded ? (
+        <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 mt-1 shadow-sm transition-all">
+          <div className="whitespace-pre-wrap text-gray-900 text-sm leading-relaxed">
+            {workLog}
+          </div>
+          <div className="text-xs text-gray-400 mt-2 text-right hover:text-gray-600 font-medium">접기 ▴</div>
+        </div>
+      ) : (
+        <div>
+          <div className="whitespace-pre-wrap text-gray-600 line-clamp-2 leading-relaxed">
+            {workLog}
+          </div>
+          <div className="text-xs text-brand-600 mt-1.5 font-medium hover:text-brand-800">
+            자세히 보기 ▾
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function AdminPage() {
   const { user } = useAuthStore();
   const router = useRouter();
@@ -290,12 +329,8 @@ export default function AdminPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {item.check_out_time ? format(new Date(item.check_out_time), 'HH:mm') : '-'}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-500 max-w-md">
-                        {item.work_log ? (
-                          <div className="whitespace-pre-wrap">{item.work_log}</div>
-                        ) : (
-                          <span className="text-gray-400 italic">미작성</span>
-                        )}
+                      <td className="px-6 py-4 text-sm max-w-md align-top">
+                        <WorkLogCell workLog={item.work_log} />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button
