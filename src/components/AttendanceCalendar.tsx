@@ -196,16 +196,25 @@ export default function AttendanceCalendar() {
                     <span className="w-2 h-2 rounded-full bg-green-500 mr-2"></span>
                     출근자 ({attendanceData.filter(a => a.date === selectedDate).length}명)
                   </h4>
-                  <ul className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-100 max-h-40 overflow-y-auto">
+                  <ul className="text-sm text-gray-700 space-y-2 max-h-[300px] overflow-y-auto pr-2">
                     {attendanceData.filter(a => a.date === selectedDate).length > 0 ? (
                       attendanceData.filter(a => a.date === selectedDate).map((a, i) => (
-                        <li key={i} className="py-1 border-b border-gray-100 last:border-0 flex justify-between">
-                          <span>{a.users.name}</span>
-                          <span className="text-gray-500">{a.check_in_time ? format(new Date(a.check_in_time), 'HH:mm') : ''}</span>
+                        <li key={i} className="bg-gray-50 p-3 rounded-lg border border-gray-100 flex flex-col gap-2">
+                          <div className="flex justify-between items-center">
+                            <span className="font-bold text-gray-900">{a.users.name}</span>
+                            <span className="text-xs text-gray-500">{a.check_in_time ? format(new Date(a.check_in_time), 'HH:mm') : ''} 출근</span>
+                          </div>
+                          {a.work_log ? (
+                            <div className="text-xs text-gray-600 bg-white p-2 rounded border border-gray-100 whitespace-pre-wrap leading-relaxed">
+                              {a.work_log}
+                            </div>
+                          ) : (
+                            <div className="text-xs text-gray-400 italic">업무 기록이 없습니다.</div>
+                          )}
                         </li>
                       ))
                     ) : (
-                      <li className="text-gray-400">출근 기록이 없습니다.</li>
+                      <li className="text-gray-400 text-center py-4">출근 기록이 없습니다.</li>
                     )}
                   </ul>
                 </div>

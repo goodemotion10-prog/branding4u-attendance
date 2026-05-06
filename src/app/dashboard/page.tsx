@@ -18,6 +18,7 @@ export default function DashboardPage() {
   const [workLog, setWorkLog] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [totalWorkingMinutes, setTotalWorkingMinutes] = useState(0);
+  const [recentLogs, setRecentLogs] = useState<any[]>([]);
 
   const fetchTodayAttendance = useCallback(async () => {
     if (!user) return;
@@ -66,6 +67,16 @@ export default function DashboardPage() {
         });
         setTotalWorkingMinutes(totalMins);
       }
+
+      // 최근 업무 기록 가져오기 (최신 5건)
+      const { data: recentData } = await supabase
+        .from('attendance')
+        .select('*')
+        .eq('user_id', user.id)
+        .not('work_log', 'is', null)
+        .order('date', { ascending: false })
+        .limit(5);
+      setRecentLogs(recentData || []);
 
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -318,6 +329,38 @@ export default function DashboardPage() {
               )}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <div className="mt-8 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+        <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
+          <span className="bg-brand-100 text-brand-600 w-8 h-8 rounded-lg flex items-center justify-center mr-3">⏪</span>
+          나의 지난 업무 기록 (최근 5건)
+        </h2>
+        <div className="space-y-4">
+          {recentLogs.length === 0 ? (
+            <p className="text-center py-8 text-gray-400 text-sm">기록된 업무 내용이 없습니다.</p>
+          ) : (
+            recentLogs.map((log) => (
+              <div key={log.id} className="p-4 bg-gray-50 rounded-xl border border-gray-100 hover:border-brand-200 transition-colors">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-bold text-gray-900">{log.date}</span>
+                  <button 
+                    onClick={() => {
+                      navigator.clipboard.writeText(log.work_log);
+                      alert('업무 내용이 복사되었습니다.');
+                    }}
+                    className="text-xs text-brand-600 hover:text-brand-700 font-medium"
+                  >
+                    내용 복사
+                  </button>
+                </div>
+                <div className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed">
+                  {log.work_log}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
