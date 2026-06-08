@@ -85,6 +85,17 @@ export default function AdminPage() {
   const [statsData, setStatsData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Client Payments states
+  const [clientPayments, setClientPayments] = useState<any[]>([]);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [editingPayment, setEditingPayment] = useState<any | null>(null);
+  
+  // Payment Form states
+  const [clientName, setClientName] = useState('');
+  const [paymentDay, setPaymentDay] = useState('');
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentMemo, setPaymentMemo] = useState('');
+
   const fetchData = useCallback(async () => {
     if (!user || user.role !== 'admin') return;
     setIsLoading(true);
@@ -145,6 +156,21 @@ export default function AdminPage() {
           }
         });
         setStatsData(Object.values(statsMap).sort((a, b) => b.totalMins - a.totalMins));
+      }
+
+      // 5. Fetch Client Payments (safe from non-existent table error)
+      try {
+        const { data: cpData, error: cpError } = await supabase
+          .from('client_payments')
+          .select('*')
+          .order('payment_day', { ascending: true });
+        if (!cpError) {
+          setClientPayments(cpData || []);
+        } else {
+          console.warn('client_payments table may not exist yet:', cpError);
+        }
+      } catch (e) {
+        console.warn('Error fetching client payments:', e);
       }
 
     } catch (error) {
@@ -254,6 +280,94 @@ export default function AdminPage() {
     }
   };
 
+  const handleSavePayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!clientName.trim()) {
+      alert('클라이언트 이름을 입력해 주세요.');
+      return;
+    }
+    const dayNum = parseInt(paymentDay, 10);
+    if (isNaN(dayNum) || dayNum < 1 || dayNum > 31) {
+      alert('결제일은 1일에서 31일 사이의 숫자여야 합니다.');
+      return;
+    }
+
+    const payload = {
+      client_name: clientName,
+      payment_day: dayNum,
+      amount: paymentAmount ? parseFloat(paymentAmount) : null,
+      memo: paymentMemo || null,
+    };
+
+    setIsLoading(true);
+    try {
+      if (editingPayment) {
+        const { error } = await supabase
+          .from('client_payments')
+          .update(payload)
+          .eq('id', editingPayment.id);
+        if (error) throw error;
+        alert('결제 정보가 수정되었습니다.');
+      } else {
+        const { error } = await supabase
+          .from('client_payments')
+          .insert([payload]);
+        if (error) throw error;
+        alert('결제 정보가 등록되었습니다.');
+      }
+      setIsPaymentModalOpen(false);
+      setClientName('');
+      setPaymentDay('');
+      setPaymentAmount('');
+      setPaymentMemo('');
+      setEditingPayment(null);
+      
+      await fetchData();
+    } catch (err: any) {
+      console.error('Error saving payment:', err);
+      alert('저장 실패: ' + (err.message || '오류가 발생했습니다. DB 테이블이 생성되어 있는지 확인해 주세요.'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeletePayment = async (id: string) => {
+    if (!confirm('정말로 이 결제 정보를 삭제하시겠습니까?')) return;
+    setIsLoading(true);
+    try {
+      const { error } = await supabase
+        .from('client_payments')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      alert('삭제 완료되었습니다.');
+      await fetchData();
+    } catch (err: any) {
+      console.error('Error deleting payment:', err);
+      alert('삭제 실패: ' + (err.message || '오류가 발생했습니다.'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const openAddPaymentModal = () => {
+    setClientName('');
+    setPaymentDay('');
+    setPaymentAmount('');
+    setPaymentMemo('');
+    setEditingPayment(null);
+    setIsPaymentModalOpen(true);
+  };
+
+  const openEditPaymentModal = (payment: any) => {
+    setEditingPayment(payment);
+    setClientName(payment.client_name);
+    setPaymentDay(payment.payment_day.toString());
+    setPaymentAmount(payment.amount ? payment.amount.toString() : '');
+    setPaymentMemo(payment.memo || '');
+    setIsPaymentModalOpen(true);
+  };
+
   if (isLoading && !attendanceData.length && !leaveRequests.length && !pendingUsers.length) {
     return <div className="flex-1 flex justify-center items-center text-gray-500">데이터를 불러오는 중...</div>;
   }
@@ -335,6 +449,12 @@ export default function AdminPage() {
             className={`${activeTab === 'stats' ? 'border-brand-500 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
           >
             근태 통계
+          </button>
+          <button
+            onClick={() => setActiveTab('payments')}
+            className={`${activeTab === 'payments' ? 'border-brand-500 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
+          >
+            결제일 관리
           </button>
         </nav>
       </div>
@@ -539,6 +659,163 @@ export default function AdminPage() {
               </tbody>
             </table>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'payments' && (
+          <div className="p-6 space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">클라이언트 결제일 목록</h2>
+                <p className="text-sm text-gray-500 mt-1">매월 등록된 결제일 아침에 텔레그램 봇으로 자동 알림이 전송됩니다.</p>
+              </div>
+              <button
+                onClick={openAddPaymentModal}
+                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-semibold rounded-md text-white bg-brand-600 hover:bg-brand-700 focus:outline-none transition-colors"
+              >
+                + 결제일 추가
+              </button>
+            </div>
+
+            <div className="overflow-x-auto bg-white rounded-lg border border-gray-100">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">클라이언트 이름</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">매월 결제일</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">결제 금액</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">비고 / 메모</th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">관리</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {clientPayments.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-8 text-center text-gray-400 text-sm">
+                        등록된 결제일 정보가 없습니다. (테이블을 생성하지 않은 경우 먼저 Supabase에 테이블을 생성해 주세요)
+                      </td>
+                    </tr>
+                  ) : (
+                    clientPayments.map((payment) => (
+                      <tr key={payment.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900 text-sm">{payment.client_name}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-semibold">{payment.payment_day}일</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
+                          {payment.amount ? `${Number(payment.amount).toLocaleString('ko-KR')}원` : '-'}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">{payment.memo || '-'}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-semibold space-x-3">
+                          <button
+                            onClick={() => openEditPaymentModal(payment)}
+                            className="text-brand-600 hover:text-brand-900 transition-colors"
+                          >
+                            수정
+                          </button>
+                          <button
+                            onClick={() => handleDeletePayment(payment.id)}
+                            className="text-red-600 hover:text-red-900 transition-colors"
+                          >
+                            삭제
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* 등록/수정 모달 */}
+            {isPaymentModalOpen && (
+              <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 overflow-y-auto">
+                <div className="bg-white rounded-xl shadow-2xl w-full max-w-md my-8 transform transition-all">
+                  <div className="flex justify-between items-center p-5 border-b border-gray-100 bg-gray-50/50 rounded-t-xl">
+                    <h3 className="text-lg font-bold text-gray-900">
+                      {editingPayment ? '결제일 정보 수정' : '신규 결제일 등록'}
+                    </h3>
+                    <button
+                      onClick={() => setIsPaymentModalOpen(false)}
+                      className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition-colors focus:outline-none"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  <form onSubmit={handleSavePayment}>
+                    <div className="p-6 space-y-4">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">
+                          클라이언트 이름 <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={clientName}
+                          onChange={(e) => setClientName(e.target.value)}
+                          className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-brand-500 focus:border-brand-500 text-gray-900"
+                          placeholder="예: 브랜딩포유 주식회사"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">
+                          매월 결제일 (1~31일) <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          required
+                          min="1"
+                          max="31"
+                          value={paymentDay}
+                          onChange={(e) => setPaymentDay(e.target.value)}
+                          className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-brand-500 focus:border-brand-500 text-gray-900"
+                          placeholder="예: 25"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">
+                          결제 금액 (원)
+                        </label>
+                        <input
+                          type="number"
+                          value={paymentAmount}
+                          onChange={(e) => setPaymentAmount(e.target.value)}
+                          className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-brand-500 focus:border-brand-500 text-gray-900"
+                          placeholder="예: 1500000"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">
+                          비고 / 메모
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={paymentMemo}
+                          onChange={(e) => setPaymentMemo(e.target.value)}
+                          className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-brand-500 focus:border-brand-500 text-gray-900"
+                          placeholder="추가 정보가 있다면 기록해 주세요."
+                        />
+                      </div>
+                    </div>
+                    <div className="p-4 border-t border-gray-100 bg-gray-50/50 rounded-b-xl flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsPaymentModalOpen(false)}
+                        className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm transition-colors"
+                      >
+                        취소
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 font-semibold text-sm transition-colors"
+                      >
+                        저장
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

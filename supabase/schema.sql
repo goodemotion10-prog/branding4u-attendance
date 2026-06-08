@@ -102,3 +102,35 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- Create client_payments table
+CREATE TABLE public.client_payments (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  client_name TEXT NOT NULL,
+  payment_day INTEGER NOT NULL CHECK (payment_day >= 1 AND payment_day <= 31),
+  amount NUMERIC,
+  memo TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable RLS
+ALTER TABLE public.client_payments ENABLE ROW LEVEL SECURITY;
+
+-- Policies for client_payments (Public SELECT, Admin-only write)
+CREATE POLICY "Allow public select for client_payments" ON public.client_payments
+  FOR SELECT USING (true);
+
+CREATE POLICY "Admin can insert client_payments" ON public.client_payments
+  FOR INSERT WITH CHECK (
+    EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin')
+  );
+
+CREATE POLICY "Admin can update client_payments" ON public.client_payments
+  FOR UPDATE USING (
+    EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin')
+  );
+
+CREATE POLICY "Admin can delete client_payments" ON public.client_payments
+  FOR DELETE USING (
+    EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin')
+  );
