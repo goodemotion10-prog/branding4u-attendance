@@ -662,22 +662,42 @@ export default function AdminPage() {
           </div>
         )}
 
-        {activeTab === 'payments' && (
-          <div className="p-6 space-y-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">클라이언트 결제일 목록</h2>
-                <p className="text-sm text-gray-500 mt-1">매월 등록된 결제일 아침에 텔레그램 봇으로 자동 알림이 전송됩니다.</p>
+        {activeTab === 'payments' && (() => {
+          const totalAmount = clientPayments.reduce((sum, item) => sum + (item.amount ? Number(item.amount) : 0), 0);
+          return (
+            <div className="p-6 space-y-6">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">클라이언트 결제일 목록</h2>
+                  <p className="text-sm text-gray-500 mt-1">매월 등록된 결제일 아침에 텔레그램 봇으로 자동 알림이 전송됩니다.</p>
+                </div>
+                <button
+                  onClick={openAddPaymentModal}
+                  className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-semibold rounded-md text-white bg-brand-600 hover:bg-brand-700 focus:outline-none transition-colors"
+                >
+                  + 결제일 추가
+                </button>
               </div>
-              <button
-                onClick={openAddPaymentModal}
-                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-semibold rounded-md text-white bg-brand-600 hover:bg-brand-700 focus:outline-none transition-colors"
-              >
-                + 결제일 추가
-              </button>
-            </div>
 
-            <div className="overflow-x-auto bg-white rounded-lg border border-gray-100">
+              {/* 요약 대시보드 카드 */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100 flex flex-col justify-center">
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">총 등록 클라이언트</span>
+                  <span className="text-2xl font-bold text-gray-900 mt-1.5">{clientPayments.length}개사</span>
+                </div>
+                <div className="bg-brand-50/50 p-5 rounded-2xl border border-brand-100/30 flex flex-col justify-center">
+                  <span className="text-xs font-semibold text-brand-600 uppercase tracking-wider">총 결제 금액 (부가세 제외)</span>
+                  <span className="text-2xl font-bold text-brand-700 mt-1.5">{totalAmount.toLocaleString('ko-KR')}원</span>
+                </div>
+              </div>
+
+              {/* 부가세 제외 안내 문구 */}
+              <div className="text-xs text-amber-600 bg-amber-50 border border-amber-200/40 px-4 py-3 rounded-xl flex items-center gap-2">
+                <span className="font-bold">※ 안내:</span>
+                <span>모든 클라이언트의 결제 금액은 부가세(VAT)가 제외된 공급가액 기준입니다.</span>
+              </div>
+
+              <div className="overflow-x-auto bg-white rounded-lg border border-gray-100">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
@@ -774,14 +794,14 @@ export default function AdminPage() {
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-1">
-                          결제 금액 (원)
+                          결제 금액 (원, 부가세 제외)
                         </label>
                         <input
                           type="number"
                           value={paymentAmount}
                           onChange={(e) => setPaymentAmount(e.target.value)}
                           className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-brand-500 focus:border-brand-500 text-gray-900"
-                          placeholder="예: 1500000"
+                          placeholder="예: 1500000 (부가세 제외)"
                         />
                       </div>
                       <div>
@@ -816,8 +836,9 @@ export default function AdminPage() {
                 </div>
               </div>
             )}
-          </div>
-        )}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
